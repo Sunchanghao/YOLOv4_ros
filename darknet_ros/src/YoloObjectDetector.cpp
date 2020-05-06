@@ -18,6 +18,36 @@ std::string darknetFilePath_ = DARKNET_FILE_PATH;
 #error Path of darknet repository is not defined in CMakeLists.txt.
 #endif
 
+#ifdef OPENCV
+void ipl_into_image(IplImage* src, image im)
+{
+    unsigned char *data = (unsigned char *)src->imageData;
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    int step = src->widthStep;
+    int i, j, k;
+
+    for(i = 0; i < h; ++i){
+        for(k= 0; k < c; ++k){
+            for(j = 0; j < w; ++j){
+                im.data[k*w*h + i*w + j] = data[i*step + j*c + k]/255.;
+            }
+        }
+    }
+}
+
+image ipl_to_image(IplImage* src)
+{
+    int h = src->height;
+    int w = src->width;
+    int c = src->nChannels;
+    image out = make_image(w, h, c);
+    ipl_into_image(src, out);
+    return out;
+}
+#endif
+
 namespace darknet_ros {
 
 char *cfg;
@@ -320,7 +350,7 @@ detection *YoloObjectDetector::avgPredictions(network *net, int *nboxes)
       count += l.outputs;
     }
   }
-  detection *dets = get_network_boxes(net, buff_[0].w, buff_[0].h, demoThresh_, demoHier_, 0, 1, nboxes);
+  detection *dets = get_network_boxes(net, buff_[0].w, buff_[0].h, demoThresh_, demoHier_, 0, 1, nboxes, 1);
   return dets;
 }
 
@@ -331,7 +361,7 @@ void *YoloObjectDetector::detectInThread()
 
   layer l = net_->layers[net_->n - 1];
   float *X = buffLetter_[(buffIndex_ + 2) % 3].data;
-  float *prediction = network_predict(net_, X);
+  float *prediction = network_predict(*net_, X);
 
   rememberNetwork(net_);
   detection *dets = 0;
@@ -347,7 +377,7 @@ void *YoloObjectDetector::detectInThread()
     printf("Objects:\n\n");
   }
   image display = buff_[(buffIndex_+2) % 3];
-  draw_detections(display, dets, nboxes, demoThresh_, demoNames_, demoAlphabet_, demoClasses_);
+  draw_detections_v3(display, dets, nboxes, demoThresh_, demoNames_, demoAlphabet_, demoClasses_, 1);
 
   // extract the bounding boxes and send them to ROS
   int i, j;
@@ -421,7 +451,8 @@ void *YoloObjectDetector::fetchInThread()
 
 void *YoloObjectDetector::displayInThread(void *ptr)
 {
-  show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO V3", ipl_);
+//  show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO", ipl_);
+  show_image_cv(buff_[(buffIndex_ + 1)%3], "YOLO");
   int c = cv::waitKey(waitKeyDelay_);
   if (c != -1) c = c%256;
   if (c == 27) {
@@ -470,7 +501,7 @@ void YoloObjectDetector::setupNetwork(char *cfgfile, char *weightfile, char *dat
   demoThresh_ = thresh;
   demoHier_ = hier;
   fullScreen_ = fullscreen;
-  printf("YOLO V3\n");
+  printf("YOLO\n");
   net_ = load_network(cfgfile, weightfile, 0);
   set_batch_network(net_, 1);
 }
@@ -521,12 +552,12 @@ void YoloObjectDetector::yolo()
   int count = 0;
 
   if (!demoPrefix_ && viewImage_) {
-      cv::namedWindow("YOLO V3", cv::WINDOW_NORMAL);
+      cv::namedWindow("YOLO", cv::WINDOW_NORMAL);
     if (fullScreen_) {
-      cv::setWindowProperty("YOLO V3", cv::WND_PROP_FULLSCREEN, cv::WINDOW_FULLSCREEN);
+      cv::setWindowProperty("YOLO", cv::WND_PROP_FULLSCREEN, cv::WINDOW_FULLSCREEN);
     } else {
-      cv::moveWindow("YOLO V3", 0, 0);
-      cv::resizeWindow("YOLO V3", 640, 480);
+      cv::moveWindow("YOLO", 0, 0);
+      cv::resizeWindow("YOLO", 640, 480);
     }
   }
 

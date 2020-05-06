@@ -46,6 +46,7 @@
 #endif
 
 extern "C" {
+#include "blas.h"
 #include "network.h"
 #include "detection_layer.h"
 #include "region_layer.h"
@@ -57,9 +58,8 @@ extern "C" {
 #include <sys/time.h>
 }
 
-extern "C" void ipl_into_image(IplImage* src, image im);
-extern "C" image ipl_to_image(IplImage* src);
-extern "C" void show_image_cv(image p, const char *name, IplImage *disp);
+image ipl_to_image(IplImage* src);
+void ipl_into_image(IplImage* src, image im);
 
 namespace darknet_ros {
 
